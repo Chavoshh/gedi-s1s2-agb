@@ -1,0 +1,7 @@
+# Dev AOI: MGRS tile 29TNG, central Galicia (~110×110 km).
+name: dev
+description: "MGRS tile 29TNG, central Galicia. Pipeline prototyping."
+west:  -8.5
+south: 42.6
+east:  -7.3
+north: 43.6

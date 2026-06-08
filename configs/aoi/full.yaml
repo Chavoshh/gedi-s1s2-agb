@@ -1,0 +1,7 @@
+# Full AOI: Northwest Iberia, paper-scale (~400×220 km).
+name: full
+description: "Northwest Iberia: Galicia + western Asturias."
+west:  -9.5
+south: 41.5
+east:  -5.5
+north: 43.5

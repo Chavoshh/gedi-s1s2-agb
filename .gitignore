@@ -1,0 +1,68 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------- Virtualenvs ----------
+.venv/
+venv/
+env/
+
+# ---------- IDEs / editors ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------- Notebooks ----------
+.ipynb_checkpoints/
+notebooks/scratch/
+
+# ---------- Secrets (CRITICAL) ----------
+.env
+.env.local
+.netrc
+_netrc
+*.pem
+*.key
+
+# ---------- Data (never commit) ----------
+/data/
+!data/.gitkeep
+
+# ---------- Model artifacts ----------
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# ---------- W&B ----------
+wandb/
+
+# ---------- Hydra ----------
+outputs/
+multirun/
+.hydra/
+
+# ---------- Logs ----------
+logs/
+*.log
+
+# ---------- OS ----------
+ehthumbs.db
+desktop.ini

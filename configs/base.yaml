@@ -1,0 +1,22 @@
+# Base Hydra config. Other configs (aoi, model, training) compose with this.
+
+defaults:
+  - aoi: dev
+  - _self_
+
+# Time window for GEDI / Sentinel acquisitions.
+time_range:
+  start: "2019-06-01"
+  end:   "2022-12-31"
+
+# Quality filter overrides. Empty = use biomass.config.DEFAULT_QUALITY.
+quality: {}
+
+# Logging
+log_level: INFO
+
+# Paths (resolved at runtime relative to project root).
+paths:
+  raw:       data/raw
+  interim:   data/interim
+  processed: data/processed
