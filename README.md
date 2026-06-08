@@ -2,7 +2,7 @@
 
 > Sparse-supervised regression for above-ground biomass: GEDI L4A lidar footprints as labels, Sentinel-1 SAR and Sentinel-2 optical imagery as inputs, dense biomass maps as outputs.
 
-**Status:** Phase 1 — GEDI data acquisition & filtering
+**Status:** Phase 1: GEDI data acquisition & filtering
 **Target venue:** IEEE GRSL / JSTARS
 **Author:** Chavosh Almassian, M.Sc. Remote Sensing & Geoinformatics, Karlsruhe Institute of Technology
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md)
@@ -11,7 +11,7 @@
 
 ## Method at a glance
 
-GEDI (Global Ecosystem Dynamics Investigation) is a NASA spaceborne lidar that measures above-ground biomass density (AGBD) at the scale of ~25 m footprints, sampled along the ISS orbit track. Its measurements are accurate but sparse — they cover roughly 4% of the land surface within its ±51.6° latitude band. This project uses those footprints as supervision for a model that maps wall-to-wall Sentinel-1 SAR and Sentinel-2 optical features to biomass, allowing biomass to be predicted at every pixel across an Area Of Interest (AOI).
+GEDI (Global Ecosystem Dynamics Investigation) is a NASA spaceborne lidar that measures above-ground biomass density (AGBD) at the scale of ~25 m footprints, sampled along the ISS orbit track. Its measurements are accurate but sparse, they cover roughly 4% of the land surface within its ±51.6° latitude band. This project uses those footprints as supervision for a model that maps wall-to-wall Sentinel-1 SAR and Sentinel-2 optical features to biomass, allowing biomass to be predicted at every pixel across an Area Of Interest (AOI).
 
 ```
                  Sparse supervision                Dense input
@@ -205,7 +205,7 @@ The pipeline is designed to be the same on a 4 GB consumer GPU as on a 24 GB wor
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT | see [`LICENSE`](LICENSE).
 
 ---
 
