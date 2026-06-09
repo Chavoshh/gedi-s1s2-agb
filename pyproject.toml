@@ -43,6 +43,7 @@ sentinel = [
     "stackstac>=0.5",
     "xarray>=2024.1",
     "dask>=2024.1",
+    "openeo>=0.30",
 ]
 
 # Modeling: tabular baseline + deep learning.

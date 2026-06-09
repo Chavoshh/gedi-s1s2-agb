@@ -66,3 +66,6 @@ logs/
 # ---------- OS ----------
 ehthumbs.db
 desktop.ini
+
+# --------Literature PDFs (copyrighted material — kept locally only) ----------
+literature-review/
