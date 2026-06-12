@@ -9,6 +9,10 @@ time_range:
   start: "2019-06-01"
   end:   "2022-12-31"
 
+# Year/Month
+year: 2020
+month: 1
+
 # Quality filter overrides. Empty = use biomass.config.DEFAULT_QUALITY.
 quality: {}
 

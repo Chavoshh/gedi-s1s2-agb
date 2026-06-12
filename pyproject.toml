@@ -44,6 +44,8 @@ sentinel = [
     "xarray>=2024.1",
     "dask>=2024.1",
     "openeo>=0.30",
+    "hyp3-sdk>=7.0",
+    "asf-search>=8.0",
 ]
 
 # Modeling: tabular baseline + deep learning.

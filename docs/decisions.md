@@ -103,10 +103,59 @@ Chronological record of design and methodology decisions. Each entry: date, deci
 
 **Backlog item:** Per-shot prediction intervals exist as `agbd_pi_lower_a*` and `agbd_pi_upper_a*` (one pair per algorithm setting group). A future re-extraction script should pull these to provide real per-shot uncertainty, useful for both weighted loss and Phase 7 uncertainty quantification. Non-blocking for Phase 2.
 ---
+## 2026-06-10 - Sentinel composite edge no-data accepted
 
+**Decision:** Accept the ~0.85% no-data pixels concentrated on the right and bottom edges of the Sentinel composites, rather than re-build with a wider bbox.
+
+**Rationale:** Inspection of the 2020 S2 composite shows the eastern 100 columns (~51%) and bottom 100 rows (~22%) contain pixels encoded as -32768 (no-data sentinel). This is consistent with UTM zone 29/30 reprojection edge effects from openEO. The interior of the composite is 100% clean. At patch-extraction time, any 25×25 patch containing the no-data sentinel will be dropped; expected loss is a few hundred GEDI shots out of 698k, negligible. Re-running with a wider bbox would cost ~186 credits per composite (6 composites = ~1100 credits) without fundamentally fixing the projection boundary issue.
+
+**Code implication:** patch-extraction code in Phase 2.5 must treat -32768 as no-data, not zero.
 ## Template
 
-When adding a new decision, copy this and fill in:
+## 2026-06-11 — Sentinel-1 processing parameters
+
+**Decision:** Build annual γ⁰ RTC (gamma-naught, radiometric terrain corrected) composites of Sentinel-1 GRD via openEO's `sar_backscatter` process. Terrain reference: Copernicus DEM 30m. Polarizations: VV and VH. Auxiliary outputs: no auxiliary outputs (CDSE does not support LIA band). No per-image speckle filtering — rely on temporal median to suppress speckle. Output values in dB, converted from linear power after temporal median reduction.
+
+**Rationale:** γ⁰ RTC is required for biomass work in mountainous terrain like Galicia, where slope-area artifacts in raw σ⁰ or β⁰ are 5–10 dB and would dominate the biomass signal. Temporal median over ~30 annual scenes already suppresses speckle substantially without sacrificing spatial resolution that per-image filtering would cost. Including LIA captures residual slope-dependent scattering not fully removed by γ⁰. Layover/shadow mask enables exclusion of geometrically degenerate pixels at patch-extraction time. dB encoding compresses the 5–6 order-of-magnitude dynamic range of linear backscatter to a numerically stable range for neural network inputs. Local incidence angle (LIA) as an auxiliary band is not supported by CDSE's openEO for Sentinel-1. The model thus has only VV and VH as direct SAR inputs. Terrain effects must be inferred indirectly from the DEM channels we include separately as auxiliary inputs.
+
+**Alternatives considered:** σ⁰ ellipsoid (rejected: severe slope artifacts in Galicia). Multi-temporal speckle filtering like Quegan (rejected: not exposed by openEO without significant custom UDF work). Per-image Lee filtering (rejected: outdated for time-series compositing).
+
+---
+
+## 2026-06-11 — Interferometric SAR products deferred
+
+**Decision:** Use Sentinel-1 GRD intensity only (γ⁰ RTC backscatter). Do not include interferometric coherence or polarimetric decomposition as model inputs in this paper.
+
+**Rationale:** Sentinel-1 IW mode over land provides dual-polarization (VV+VH) only, so full polarimetric decomposition is unavailable. Interferometric coherence requires SLC products and pairwise InSAR processing, which would substantially increase complexity and credit cost (~5–10× per composite) while opening a parallel methodological story that competes with the fusion-comparison contribution.
+
+**Future work:** A follow-up paper using InSAR coherence as a forest-structure input is a natural extension, particularly given the author's SAR/InSAR background.
+
+## 2026-06-11 - Sentinel-1 processing: σ⁰ ellipsoid via CDSE openEO
+
+- **ASF Hyp3** delivers true γ⁰-terrain RTC but its full-Sentinel-1-scene delivery model produces ~6 GB downloads per scene at 10 m resolution. A 3-year sub-sampled run (~360 scenes) would require ~2.3 TB total download over residential bandwidth from a US server — infeasible given time and bandwidth constraints.
+- **Local RTC with pyroSAR/SNAP** would require multi-day infrastructure setup and ~30 hours of local CPU processing on a hardware-limited workstation.
+
+## 2026-06-11 — Sentinel-1: σ⁰ ellipsoid via CDSE openEO, monthly chunking
+
+**Decision:** Build Sentinel-1 annual composites by submitting one CDSE openEO batch job per month (12 jobs/year × 3 years = 36 jobs), each producing a monthly σ⁰-ellipsoid median composite in linear power. Annual composites are assembled locally by computing the median across the 12 monthly composites, then converting to dB. Bands: VV and VH only.
+
+**Rationale (multi-part — significant iteration during this session):**
+
+*On RTC level.* True γ⁰ radiometric terrain correction is preferable for biomass work in mountainous Galicia but is not currently implemented on CDSE openEO (CDSE developer confirmation, Jan 2026). γ⁰ ellipsoid was attempted and rejected by client-side validation; only σ⁰ ellipsoid is currently exposed. The difference between σ⁰ and γ⁰ ellipsoid is a fixed factor involving the local incidence angle (γ⁰ = σ⁰ / cos θ_LIA), which a model with terrain auxiliary inputs (DEM) can partially learn. ASF Hyp3 was evaluated as an alternative (true γ⁰ terrain-corrected output) but rejected because its full-scene delivery model produces ~6 GB per scene at 10 m resolution and a 3-year sub-sampled run would require ~250 GB of downloads over residential bandwidth, an unacceptable time cost given the project's contribution is the fusion comparison, not the SAR processing quality. Local SNAP/pyroSAR processing was also rejected on time grounds. Slope-area artifacts from ellipsoid-only correction (estimated 3–8 dB on steep slopes) manifest as noise shared identically by all four model variants in the fusion comparison and therefore do not bias the relative ranking of fusion strategies.
+
+*On auxiliary outputs.* CDSE openEO does not support the local-incidence-angle band or layover/shadow mask for Sentinel-1 (June 2026). The output is reduced to VV and VH only.
+
+*On monthly chunking.* Single full-year batch jobs over the dev AOI (~12,000 km²) failed with `MetadataFetchFailedException` in Spark shuffle stages after ~2.5 hours of executor time, twice. The failure is a CDSE backend resource limit, not a process-graph error. Splitting each year into 12 monthly batch jobs (each handling ~1/12 the temporal data volume) brings per-job shuffle pressure into the workable range. Median-of-monthly-medians is statistically very close to median-of-all-scenes and is arguably preferable because it gives equal weight to each month regardless of how many scenes were acquired (some months have 3 scenes, others 10).
+
+*On dB conversion.* Performed locally on the aggregated annual composite, not server-side. Server-side per-band math via `merge_cubes` was an earlier attempt that complicated the process graph without commensurate benefit.
+
+**Future work:** Replication with true γ⁰-terrain RTC (via ASF Hyp3, future CDSE support, or local SNAP/pyroSAR) would improve absolute biomass RMSE in mountainous terrain but is not expected to alter the relative fusion-strategy comparison that is this paper's focus. Quantifying that improvement is a natural follow-up study.
+
+**Alternatives considered:** ASF Hyp3 with aggressive sub-sampling. Local pyroSAR/SNAP. Single annual openEO job with increased executor-memory job options.
+
+**Future work:** Replication with γ⁰-terrain RTC (via ASF Hyp3, or via CDSE once terrain correction is released, or locally via pyroSAR/SNAP) would improve absolute biomass RMSE in mountainous terrain but is not expected to alter the relative fusion-strategy comparison that is this paper's focus. Worth quantifying in a follow-up study.
+
+**Alternatives considered:** ASF Hyp3 with aggressive scene sub-sampling (rejected: still ~250 GB downloads, days of background processing). Local pyroSAR/SNAP (rejected: multi-day infrastructure setup outside the project's time budget).
 
 \`\`\`
 ## YYYY-MM-DD — Short title
