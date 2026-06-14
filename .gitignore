@@ -67,5 +67,9 @@ logs/
 ehthumbs.db
 desktop.ini
 
-# --------Literature PDFs (copyrighted material — kept locally only) ----------
+# --------Literature PDFs (copyrighted material - kept locally only) ----------
 literature-review/
+
+# -------- Personal roadmap and learning notes (kept locally only) ---------
+docs/roadmap.pdf
+docs/learning_notes.pdf
