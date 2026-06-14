@@ -4,14 +4,14 @@
 
 A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
 
-**Project status:** Phase 2 complete — data acquisition and patch dataset built. Phase 3 (modeling) in progress.
+**Project status:** Phase 2 complete: data acquisition and patch dataset built. Phase 3 (modeling) in progress.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md) — every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
 
 ## Why this project
 
-GEDI (Global Ecosystem Dynamics Investigation) is a NASA spaceborne lidar that measures above-ground biomass density at ~25 m footprints, accurately but sparsely — covering roughly 4% of the land surface within its ±51.6° latitude band. To produce wall-to-wall biomass maps, GEDI's sparse measurements must be combined with dense optical and SAR observations from satellites like Sentinel-2 and Sentinel-1.
+GEDI (Global Ecosystem Dynamics Investigation) is a NASA spaceborne lidar that measures above-ground biomass density at ~25 m footprints, accurately but sparsely - covering roughly 4% of the land surface within its ±51.6° latitude band. To produce wall-to-wall biomass maps, GEDI's sparse measurements must be combined with dense optical and SAR observations from satellites like Sentinel-2 and Sentinel-1.
 
 The remote-sensing community has converged on this strategy, but the question of *how* to fuse SAR and optical inputs — early fusion (concatenated channels), late fusion (independent encoders combined at decision time), or alternatives - remains open. Existing GEDI biomass papers typically pick one fusion strategy without controlled comparison.
 
