@@ -5,7 +5,7 @@
 A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
 
 **Project status:** Phase 2 complete: data acquisition and patch dataset built. Phase 3 (modeling) in progress.
-**Decisions log:** [`docs/decisions.md`](docs/decisions.md) — every non-obvious methodological choice is recorded with rationale and alternatives.
+**Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
 
@@ -13,29 +13,29 @@ A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-al
 
 GEDI (Global Ecosystem Dynamics Investigation) is a NASA spaceborne lidar that measures above-ground biomass density at ~25 m footprints, accurately but sparsely - covering roughly 4% of the land surface within its ±51.6° latitude band. To produce wall-to-wall biomass maps, GEDI's sparse measurements must be combined with dense optical and SAR observations from satellites like Sentinel-2 and Sentinel-1.
 
-The remote-sensing community has converged on this strategy, but the question of *how* to fuse SAR and optical inputs — early fusion (concatenated channels), late fusion (independent encoders combined at decision time), or alternatives - remains open. Existing GEDI biomass papers typically pick one fusion strategy without controlled comparison.
+The remote-sensing community has converged on this strategy, but the question of *how* to fuse SAR and optical inputs - early fusion (concatenated channels), late fusion (independent encoders combined at decision time), or alternatives - remains open. Existing GEDI biomass papers typically pick one fusion strategy without controlled comparison.
 
 This project provides that controlled comparison over a forested AOI in Northwest Iberia, with strict spatial cross-validation, explicit saturation analysis at high biomass values, and per-pixel uncertainty estimation. The four model variants (S1-only, S2-only, early fusion, late fusion) share a common backbone, training procedure, and patch dataset to isolate the fusion strategy as the only varying factor.
 
-Sparse supervision                Dense input
-             ─────────────────                 ───────────
-             GEDI L4A footprints       ╲      Sentinel-1 (VV, VH, LIA)
-             (~25 m, sparse points)     ╲     Sentinel-2 (10 bands)
-                      │                  ╲    Copernicus DEM (elevation, slope)
-                      │                   ▼   (10 m, wall-to-wall)
-                      │
-                      ▼
-              ┌────────────────────────────────┐
-              │  Patch-based regression model  │
-              │  S1-only / S2-only / early /   │
-              │       late fusion variants     │
-              └────────────────────────────────┘
-                      │
-                      ▼
-             Wall-to-wall AGBD map
-             (Mg/ha, with per-pixel uncertainty)
-
----
+```text
+  Sparse supervision                Dense inputs
+  ──────────────────                ────────────
+  GEDI L4A footprints               Sentinel-1 (VV, VH, LIA)
+  (~25 m, sparse points)            Sentinel-2 (10 spectral bands)
+                                    Copernicus DEM (elevation, slope)
+           │                                    │
+           └──────────────┬─────────────────────┘
+                          ▼
+             ┌────────────────────────────┐
+             │  Patch-based regression    │
+             │  S1 / S2 / early / late    │
+             │       fusion variants      │
+             └────────────────────────────┘
+                          │
+                          ▼
+               Wall-to-wall AGBD map
+               (Mg/ha, with per-pixel uncertainty)
+```
 
 ## Study area
 
@@ -176,7 +176,7 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 19_inspect_dem.py           Visual sanity check on DEM
 20_extract_patches.py       Phase 2 final: extract 25×25 patches → Zarr
 
-Scripts numbered 11–13 are intentionally absent — they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
+Scripts numbered 11–13 are intentionally absent - they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
 
 A diagnostic utility lives at `scripts/tools/audit_s1.py` for cross-referencing the Hyp3 manifest, server-side job status, and local Zarr output state.
 
@@ -250,7 +250,7 @@ gedi-s1s2-agb/
 
 ## License
 
-MIT -git see [`LICENSE`](LICENSE).
+MIT - git see [`LICENSE`](LICENSE).
 
 ---
 
