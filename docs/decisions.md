@@ -218,7 +218,7 @@ Chronological record of design and methodology decisions. Each entry records wha
 ## Appendix: Template for new entries
 
 ```
-## YYYY-MM-DD — Short title
+## YYYY-MM-DD - Short title
 
 **Decision:**
 
