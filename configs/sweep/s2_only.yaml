@@ -1,0 +1,62 @@
+# W&B Bayesian sweep on the S2-only variant.
+# Identifies hyperparameter values that minimize validation RMSE.
+# After sweep finishes, the best run's hyperparameters apply to all 4 variants.
+
+program: scripts/21_train.py
+method: bayes
+metric:
+  name: val/rmse
+  goal: minimize
+
+# How many runs to launch. Bayesian search needs ~25-40 to converge meaningfully.
+# We cap at 30; you can extend via `wandb agent` if it hasn't converged.
+# Each run is ~30 epochs * ~11 min = ~5.5 hours, but most runs early-stop
+# before that. Total expected sweep time: ~24-30 hours.
+
+# Tighter epoch budget for sweep runs: we don't need every run to fully converge,
+# we just need to rank them. Early-stop catches the divergers fast.
+parameters:
+  # ---- Variant locked ----
+  model:
+    value: s2_only
+
+  # ---- Reduced epoch budget for sweep runs ----
+  "train.epochs":
+    value: 20                  # short enough to rank, long enough to differentiate
+
+  "train.early_stop_patience":
+    value: 5
+
+  # ---- Hyperparameters to sweep ----
+  "train.learning_rate":
+    distribution: log_uniform_values
+    min: 3.0e-4
+    max: 3.0e-3
+
+  "train.batch_size":
+    values: [32, 64, 128]
+
+  "train.weight_decay":
+    distribution: log_uniform_values
+    min: 1.0e-5
+    max: 1.0e-3
+
+  "train.head_dropout":
+    values: [0.1, 0.2, 0.3, 0.4]
+
+  "train.head_hidden_dim":
+    values: [32, 64, 128]
+
+  "train.huber_delta":
+    values: [15.0, 30.0, 50.0]
+
+  "train.warmup_epochs":
+    values: [0, 1, 2]
+
+command:
+  - ${env}
+  - uv
+  - run
+  - python
+  - ${program}
+  - ${args_no_hyphens}

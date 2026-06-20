@@ -1,0 +1,41 @@
+# Default training hyperparameters. Override per-variant or via CLI.
+# All values are reasonable starting points; the W&B sweep will tune them.
+
+# Optimization
+batch_size: 64
+epochs: 30
+learning_rate: 1.0e-3
+weight_decay: 1.0e-4
+warmup_epochs: 2          # linear warmup before cosine schedule kicks in
+lr_min: 1.0e-6            # floor for the cosine schedule
+
+# Loss
+huber_delta: 30.0         # Mg/ha; transition from quadratic to linear
+
+# Model head
+head_hidden_dim: 64
+head_dropout: 0.2
+
+# Mixed precision
+use_amp: true             # AMP fp16 mixed precision
+
+# Early stopping
+early_stop_patience: 5   # epochs of no val RMSE improvement before stopping
+early_stop_min_delta: 0.05 # Mg/ha; minimum improvement to count as progress
+
+# DataLoader
+num_workers: 4
+pin_memory: true
+persistent_workers: true  # keep workers alive across epochs (faster)
+
+# Seed for reproducibility (overridden by --seed CLI)
+seed: 42
+
+# Logging
+log_every_n_batches: 100
+wandb_project: gedi-s1s2-agb
+wandb_mode: online        # 'online' / 'offline' / 'disabled'
+
+# Checkpointing
+checkpoint_dir: data/checkpoints
+save_top_k: 2             # keep best K checkpoints by val RMSE

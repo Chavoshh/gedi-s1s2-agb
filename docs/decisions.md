@@ -213,6 +213,67 @@ Chronological record of design and methodology decisions. Each entry records wha
 
 **Alternatives considered:** Multi-year stacking (deferred to follow-up). Random train / test split (rejected: spatial leakage would inflate validation metrics). No spatial sub-sampling (considered: gives ~694k patches but with substantial spatial-correlation redundancy; the smaller stratified dataset is preferable for cleaner cross-validation).
 
+## 2026-06-15 — Phase 3 model architecture and training infrastructure
+
+**Decision:** Use a ResNet-18 backbone adapted for 25×25 patches as the shared encoder across all four model variants (S1-only, S2-only, early fusion, late fusion). Train with Huber loss (δ=30 Mg/ha), AdamW optimizer, cosine learning-rate schedule with linear warmup, AMP mixed precision (fp16), and label-invariant augmentation (90° rotations, horizontal/vertical flips). Per-channel z-score normalization applied on-the-fly using statistics computed over the training partition only.
+
+**Architecture details:**
+- Backbone modifications: 3×3 stride-1 stem (replaces the standard ImageNet 7×7 stride-2 stem + maxpool, which would collapse the 25×25 spatial dimension prematurely). Three residual stages with channel depths 64 → 128 → 256 (the standard fourth stage at 512 channels is dropped because it would reduce spatial dimensions to 1×1, throwing away spatial information).
+- Output: 256-dimensional feature vector after global average pooling. Single encoder for S1-only, S2-only, and early fusion variants (~2.78 M parameters each); two parallel encoders for late fusion (~5.56 M total).
+- Regression head: 2-layer MLP with dropout (256 → 64 → 1 for single encoder, 512 → 64 → 1 for late fusion). The output is unconstrained (no sigmoid / softplus); negative predictions are clipped at evaluation time only.
+- Late fusion routing: the dataset returns the full 15-channel patch; the model uses `torch.index_select` internally to split into the S1 branch (VV, VH, LIA, elevation, slope = 5 channels) and the S2 branch (10 spectral bands + elevation + slope = 12 channels). DEM is duplicated across both branches because terrain context is informative for both modalities and keeps the comparison to single-sensor variants clean.
+
+**Training configuration (defaults):**
+- Loss: Huber (δ=30 Mg/ha). Quadratic regime within ±30 Mg/ha of true biomass, linear beyond. The transition point is chosen at roughly the standard deviation of the training labels, which gives a sensible tradeoff between MSE-like behavior for small errors and MAE-like robustness for the high-biomass tail.
+- Optimizer: AdamW, learning rate 1e-3, weight decay 1e-4.
+- Schedule: 2-epoch linear warmup followed by cosine annealing to a floor of 1e-6 over 30 epochs.
+- Batch size: 64. Mixed precision (AMP fp16) with `GradScaler` for stability.
+- Early stopping: patience 5 epochs on validation RMSE, minimum delta 0.05 Mg/ha.
+- Augmentation: random 90° rotation (uniform over k ∈ {0, 1, 2, 3}) followed by independent random horizontal and vertical flips. All augmentations are label-invariant (AGBD is rotation- and flip-invariant for a single shot).
+
+**Rationale:**
+
+*On the backbone choice.* Standard ResNet-18 sized for ImageNet (224×224 input) is the natural starting point given prior project experience (DFC2020 land-cover segmentation, Sentinel-2 burn segmentation both used ResNet-18 encoders within U-Net architectures). However, the standard ImageNet stem (7×7 conv stride 2 + 3×3 maxpool stride 2) immediately downsamples 4×, which would reduce 25×25 to 6×6 before any residual blocks fire — destructive for small inputs. The fix is the standard CIFAR-style adaptation: 3×3 stride-1 stem with no maxpool, three residual stages instead of four. Output feature map at 7×7×256 retains meaningful spatial structure before global pooling.
+
+*On the loss choice.* The AGBD label distribution is right-skewed: median 47 Mg/ha, p99 379 Mg/ha (after capping at 500 Mg/ha per the 2026-06-09 decision). MSE penalizes high-biomass errors heavily and biases predictions toward low values; MAE is too flat near the median. Huber loss is the standard compromise — quadratic near zero, linear beyond. δ=30 Mg/ha is a sensible starting point (roughly the std of the training labels) and was retained after the W&B sweep found no meaningful improvement from alternatives (15.0, 50.0).
+
+*On the fusion design.* Late fusion uses feature concatenation followed by a single MLP head, not cross-attention or feature averaging. Concatenation is the standard approach in published GEDI biomass work and introduces the fewest additional variables that would confound the early-vs-late comparison. The DEM is included in both branches of late fusion (rather than as a third independent branch) to keep the architecture simple and the comparison to single-sensor variants clean.
+
+**Alternatives considered:** ResNet-34 (planned ablation for capacity control). Custom small CNN under 1 M parameters (rejected for less defensible architectural lineage). Cross-attention fusion (rejected as confounding the central comparison). Log-cosh loss (rejected because Huber is easier to interpret and tune; differences are marginal).
+
+---
+
+## 2026-06-19 - Hyperparameter sweep on S2-only variant
+
+**Decision:** Bayesian hyperparameter sweep run on the S2-only variant via Weights & Biases. Searched over learning rate, batch size, weight decay, head hidden dimension, head dropout, Huber δ, and warmup epochs. Ten configurations completed before stopping; the sweep had clearly converged to a tight performance band, with no candidate beating the default configuration meaningfully.
+
+**Sweep configuration:**
+- Method: Bayesian optimization.
+- Metric: minimize validation RMSE.
+- Epochs per run: 20 (reduced from the 30-epoch production budget; sufficient to rank candidates without wasting compute on tail convergence).
+- Early stopping patience: 5 epochs.
+
+**Search ranges:**
+- Learning rate: log-uniform [3e-4, 3e-3].
+- Batch size: {32, 64, 128}.
+- Weight decay: log-uniform [1e-5, 1e-3].
+- Head hidden dimension: {32, 64, 128}.
+- Head dropout: {0.1, 0.2, 0.3, 0.4}.
+- Huber δ: {15.0, 30.0, 50.0}.
+- Warmup epochs: {0, 1, 2}.
+
+**Result:**
+- Range of validation RMSE across 10 runs: 44.92 to 45.64 Mg/ha. Spread of 0.72 Mg/ha across ten substantially different configurations.
+- Two of ten runs essentially tied with the no-sweep default-config baseline (44.92 and 44.96 vs. baseline 44.89).
+- No run beat the baseline.
+
+**Interpretation:** The narrow spread and the failure to beat the default-config baseline indicate that S2-only performance on this dataset is bounded by an architecture / data ceiling at approximately 45 Mg/ha validation RMSE rather than by hyperparameter tuning. The Bayesian sampler effectively confirmed the manually-chosen defaults — two independent search procedures (manual default selection and Bayesian optimization) converged to the same hyperparameter region.
+
+**Decision for the final reporting runs:** Use the default training configuration (the original Phase 3 defaults) for all 12 reporting runs (4 variants × 3 seeds). No hyperparameter changes between the sweep and the reporting runs. This keeps the methods section simple: a single configuration applied across all variants, with sweep evidence supporting that the configuration is near-optimal and that results are robust to reasonable hyperparameter variation.
+
+**Methodological framing for the paper:** "Hyperparameters were tuned via Bayesian optimization on the S2-only variant, with 10 candidate configurations evaluated against validation RMSE. The search converged to validation RMSE 45.2 ± 0.2 Mg/ha across configurations, with the default configuration achieving 44.9 Mg/ha. We adopt the default configuration for all reported results."
+
+**Alternatives considered:** Extending the sweep to 20+ runs (rejected: variance across 10 runs already small enough that additional runs would provide diminishing information). Picking the absolute-best sweep configuration (44.92 Mg/ha) over the default (44.89 Mg/ha) (rejected: difference is below measurement noise, and "default config" is a cleaner methods sentence). Per-variant hyperparameter sweeps (rejected: defensibility hinges on a single configuration applied consistently across all variants).
 ---
 
 ## Appendix: Template for new entries

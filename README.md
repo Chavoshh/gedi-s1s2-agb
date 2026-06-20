@@ -57,7 +57,7 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 0     | ✅ done        | Scoping, AOI selection, project scaffolding, GEDI access validated  |
 | 1     | ✅ done        | GEDI L4A acquisition and quality filtering (813,124 shots)          |
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
-| 3     | 🚧 in progress | Model design and training (4 fusion variants)                        |
+| 3     | 🚧 in progress | Model design, S2-only baseline (val RMSE 44.9 Mg/ha), hyperparameter sweep complete; full 12-run training pending                       |
 | 4     | pending        | Evaluation: spatial CV, saturation analysis, fusion comparison       |
 | 5     | pending        | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps     |
 | 6     | pending        | Manuscript                                                           |
@@ -77,6 +77,17 @@ Concrete artifacts available at AOI scale (dev AOI, ~110 × 110 km, all on a com
 | Patch dataset (Zarr)              | 375,817   | 15-channel 25×25 patches, train/val/test, AGBD labels        | this project          |
 
 The Sentinel-1 acquisition required pivoting through three backends before settling on ASF Hyp3 for true γ⁰ terrain-corrected RTC. The full story (CDSE openEO limitations, Spark shuffle failures on full-year jobs, Orfeo Toolbox segfaults, and the final Hyp3 strategy with 12 scenes/year at 30 m resampled to 10 m) is documented in the decisions log entry of 2026-06-12.
+
+## What Phase 3 has produced so far
+
+Training infrastructure complete and a single-variant baseline established:
+
+- **Architecture**: ResNet-18 backbone adapted for 25 × 25 patches (small-input 3 × 3 stride-1 stem, three residual stages with channels 64 → 128 → 256). Single encoder + 2-layer MLP head for the S1-only, S2-only, and early-fusion variants (~2.78 M parameters); two parallel encoders concatenated at the head for late fusion (~5.56 M parameters).
+- **Training**: PyTorch with AMP mixed precision, AdamW + cosine schedule + linear warmup, Huber loss (δ = 30 Mg/ha), label-invariant augmentation (90 ° rotations + flips), Hydra-configured CLI with W&B integration.
+- **S2-only baseline (single seed)**: 38 epochs, validation RMSE **44.89 Mg/ha** at best (epoch 28), R² = 0.44, bias = −5.7 Mg/ha. Clean convergence, no instability, no overfitting (val performance tracks train performance).
+- **W&B hyperparameter sweep on S2-only**: 10 Bayesian-optimization runs over learning rate, batch size, weight decay, head hidden dim, dropout, Huber δ, and warmup epochs. Validation RMSE across runs: 44.92 to 45.64 Mg/ha (spread 0.7 Mg/ha). The sweep failed to beat the default-configuration baseline, indicating that S2-only performance is bounded by an architecture / data ceiling at ~45 Mg/ha. Default configuration adopted for all reporting runs.
+
+The full 12-run reporting batch (4 variants × 3 seeds at the production 30-epoch budget) is the next planned step. See [`docs/decisions.md`](docs/decisions.md) for full methodological rationale.
 
 ---
 

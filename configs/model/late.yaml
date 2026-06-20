@@ -1,0 +1,3 @@
+# Late fusion: two parallel encoders (S1+DEM, S2+DEM), concatenated features, single MLP head
+variant: late
+name: late_fusion

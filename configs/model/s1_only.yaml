@@ -1,0 +1,3 @@
+# S1-only baseline: SAR alone (+DEM)
+variant: s1_only
+name: s1_only

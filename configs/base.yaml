@@ -1,7 +1,8 @@
-# Base Hydra config. Other configs (aoi, model, training) compose with this.
-
+# Base Hydra config. Other configs (aoi, train, model) compose with this.
 defaults:
   - aoi: dev
+  - train: default
+  - model: s2_only         # default; override via CLI: model=s1_only
   - _self_
 
 # Time window for GEDI / Sentinel acquisitions.

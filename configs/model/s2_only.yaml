@@ -1,0 +1,3 @@
+# S2-only baseline: optical alone (+DEM)
+variant: s2_only
+name: s2_only
