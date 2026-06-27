@@ -276,6 +276,37 @@ Chronological record of design and methodology decisions. Each entry records wha
 **Alternatives considered:** Extending the sweep to 20+ runs (rejected: variance across 10 runs already small enough that additional runs would provide diminishing information). Picking the absolute-best sweep configuration (44.92 Mg/ha) over the default (44.89 Mg/ha) (rejected: difference is below measurement noise, and "default config" is a cleaner methods sentence). Per-variant hyperparameter sweeps (rejected: defensibility hinges on a single configuration applied consistently across all variants).
 ---
 
+## 2026-06-25 - Phase 3 reporting batch results
+
+**Decision:** 12 reporting runs completed (4 variants × 3 seeds = 42, 7, 123). All runs used the default configuration (30 epochs, batch=64, lr=1e-3, Huber δ=30, dropout=0.2, head_hidden_dim=64), determined as near-optimal by the Bayesian sweep on 2026-06-19. Validation RMSE results form the basis for selecting the headline variant before Phase 4 test-set evaluation.
+
+**Results (validation RMSE, mean ± std across 3 seeds):**
+
+| Variant       | Val RMSE (Mg/ha) | Notes |
+|---------------|------------------|-------|
+| Late fusion   | 45.13 ± 0.23     | Best |
+| S2-only       | 45.39 ± 0.49     | +0.27 vs late fusion |
+| Early fusion  | 45.46 ± 0.29     | +0.34 vs late fusion |
+| S1-only       | 51.50 ± 0.19     | +6.38 vs late fusion |
+
+**Key findings:**
+
+1. **Late fusion is the best variant by a small but consistent margin.** Mean RMSE 0.27 Mg/ha lower than S2-only, with cross-seed std (0.23) smaller than the gap. This is the headline finding: independent SAR and optical encoders, combined at the feature level via concatenation and a single MLP head, produce the lowest validation RMSE.
+
+2. **Early fusion is statistically indistinguishable from S2-only.** Gap is 0.07 Mg/ha, well within cross-seed variance. This is the methodologically important negative result — naive channel concatenation does not extract value from SAR information that's available in the input. Late fusion's advantage over early fusion (Δ = 0.33 Mg/ha) is the controlled signal of the fusion-strategy comparison.
+
+3. **S1-only is dramatically worse than any optical-using variant.** ~6 Mg/ha gap, very low cross-seed variance (0.19). The C-band SAR signal alone is insufficient for biomass regression at the resolution and biomass range of this AOI. This is consistent with the published understanding that C-band saturates around 100 Mg/ha biomass.
+
+**Interpretation of why late fusion outperforms early fusion:** Sentinel-1 SAR and Sentinel-2 optical bands have very different statistical properties (dB units vs reflectance scales, specular vs spectral signal types). A single encoder operating on concatenated raw channels must learn joint representations from both modalities simultaneously, which is harder than learning each modality's representation separately and combining them at a higher abstraction level. Late fusion structurally enforces modality-specific feature learning before combination.
+
+**Reproducibility check:** The S2-only seed-42 reporting run achieved val RMSE 44.90 Mg/ha, reproducing the prior baseline (44.89 Mg/ha, also seed 42) to within 0.01 Mg/ha. This confirms the training procedure is reproducible across runs.
+
+**Validation set caveat:** All numbers above are on the validation partition, which the training loop uses for early stopping. The headline numbers for the paper will come from the held-out test partition (72,033 patches, spatially independent of train and val, never seen during training or hyperparameter selection). Test-set evaluation is Phase 4.
+
+**Compute budget:** Total wall time for the 12 reporting runs was approximately 80 hours of background compute on the GTX 1050 Ti workstation. Average per-run time was 6.7 hours, ranging from ~5 hours (S1-only, fast early-stopping) to ~9 hours (late fusion, two encoders).
+
+**Alternatives considered:** Per-variant hyperparameter sweeps (rejected: would have multiplied compute by 4x and confounded the fusion-strategy comparison with per-variant tuning differences). Multi-year temporal stacking instead of year-matched
+
 ## Appendix: Template for new entries
 
 ```
