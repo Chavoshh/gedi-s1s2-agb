@@ -57,8 +57,8 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 0     | ✅ done        | Scoping, AOI selection, project scaffolding, GEDI access validated  |
 | 1     | ✅ done        | GEDI L4A acquisition and quality filtering (813,124 shots)          |
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
-| 3     | 🚧 in progress | Model design, S2-only baseline (val RMSE 44.9 Mg/ha), hyperparameter sweep complete; full 12-run training pending                       |
-| 4     | pending        | Evaluation: spatial CV, saturation analysis, fusion comparison       |
+| 3     | ✅ done  | Model design, S2-only baseline (val RMSE 44.9 Mg/ha), hyperparameter sweep complete; full 12-run training done                       |
+| 4     | 🚧 in progress       | Evaluation: spatial CV, saturation analysis, fusion comparison       |
 | 5     | pending        | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps     |
 | 6     | pending        | Manuscript                                                           |
 
