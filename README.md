@@ -4,7 +4,7 @@
 
 A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
 
-**Project status:** Phase 2 complete: data acquisition and patch dataset built. Phase 3 (modeling) in progress.
+**Project status:** Phase 3 complete: model architecture + training infrastructure built; 12 reporting runs done (late fusion best at val RMSE 45.13 ± 0.23 Mg/ha). Phase 4 (test-set evaluation) pending.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
@@ -57,8 +57,8 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 0     | ✅ done        | Scoping, AOI selection, project scaffolding, GEDI access validated  |
 | 1     | ✅ done        | GEDI L4A acquisition and quality filtering (813,124 shots)          |
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
-| 3     | ✅ done  | Model design, S2-only baseline (val RMSE 44.9 Mg/ha), hyperparameter sweep complete; full 12-run training done                       |
-| 4     | 🚧 in progress       | Evaluation: spatial CV, saturation analysis, fusion comparison       |
+| 3     | ✅ done        | Model architecture + training pipeline; 12 reporting runs complete (4 variants × 3 seeds). Late fusion best at val RMSE 45.13 ± 0.23 Mg/ha. |
+| 4     | ⏳ pending     | Test-set evaluation on all 12 checkpoints; headline numbers and stratified analysis  |
 | 5     | pending        | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps     |
 | 6     | pending        | Manuscript                                                           |
 
@@ -78,16 +78,26 @@ Concrete artifacts available at AOI scale (dev AOI, ~110 × 110 km, all on a com
 
 The Sentinel-1 acquisition required pivoting through three backends before settling on ASF Hyp3 for true γ⁰ terrain-corrected RTC. The full story (CDSE openEO limitations, Spark shuffle failures on full-year jobs, Orfeo Toolbox segfaults, and the final Hyp3 strategy with 12 scenes/year at 30 m resampled to 10 m) is documented in the decisions log entry of 2026-06-12.
 
-## What Phase 3 has produced so far
+## What Phase 3 produced
 
-Training infrastructure complete and a single-variant baseline established:
+Phase 3 built the model training infrastructure and ran the full reporting batch.
 
-- **Architecture**: ResNet-18 backbone adapted for 25 × 25 patches (small-input 3 × 3 stride-1 stem, three residual stages with channels 64 → 128 → 256). Single encoder + 2-layer MLP head for the S1-only, S2-only, and early-fusion variants (~2.78 M parameters); two parallel encoders concatenated at the head for late fusion (~5.56 M parameters).
-- **Training**: PyTorch with AMP mixed precision, AdamW + cosine schedule + linear warmup, Huber loss (δ = 30 Mg/ha), label-invariant augmentation (90 ° rotations + flips), Hydra-configured CLI with W&B integration.
-- **S2-only baseline (single seed)**: 38 epochs, validation RMSE **44.89 Mg/ha** at best (epoch 28), R² = 0.44, bias = −5.7 Mg/ha. Clean convergence, no instability, no overfitting (val performance tracks train performance).
-- **W&B hyperparameter sweep on S2-only**: 10 Bayesian-optimization runs over learning rate, batch size, weight decay, head hidden dim, dropout, Huber δ, and warmup epochs. Validation RMSE across runs: 44.92 to 45.64 Mg/ha (spread 0.7 Mg/ha). The sweep failed to beat the default-configuration baseline, indicating that S2-only performance is bounded by an architecture / data ceiling at ~45 Mg/ha. Default configuration adopted for all reporting runs.
+**Architecture and training.** ResNet-18 backbone adapted for 25 × 25 patches (small-input 3 × 3 stride-1 stem, three residual stages with channels 64 → 128 → 256). Single encoder + 2-layer MLP head for the S1-only, S2-only, and early-fusion variants (~2.78 M parameters); two parallel encoders concatenated at the head for late fusion (~5.56 M parameters). Trained with PyTorch + AMP mixed precision, AdamW + cosine schedule + linear warmup, Huber loss (δ = 30 Mg/ha), label-invariant augmentation (90° rotations + flips). Hydra-configured CLI with W&B integration.
 
-The full 12-run reporting batch (4 variants × 3 seeds at the production 30-epoch budget) is the next planned step. See [`docs/decisions.md`](docs/decisions.md) for full methodological rationale.
+**Hyperparameter sweep.** Bayesian optimization on the S2-only variant: 10 runs over learning rate, batch size, weight decay, head hidden dim, dropout, Huber δ, and warmup epochs. Validation RMSE across runs: 44.92 to 45.64 Mg/ha (spread 0.7 Mg/ha). No sweep configuration beat the default-configuration baseline, indicating that S2-only performance is bounded by an architecture / data ceiling at ~45 Mg/ha. Default configuration adopted for all reporting runs.
+
+**Reporting batch results.** 12 runs (4 variants × 3 seeds at the production 30-epoch budget). Validation RMSE, mean ± std across 3 seeds:
+
+| Variant       | Val RMSE (Mg/ha) | Notes                              |
+|---------------|------------------|------------------------------------|
+| Late fusion   | **45.13 ± 0.23** | Best; 3/3 seeds beat early fusion  |
+| S2-only       | 45.39 ± 0.49     | Strong optical baseline            |
+| Early fusion  | 45.46 ± 0.29     | Indistinguishable from S2-only     |
+| S1-only       | 51.50 ± 0.19     | C-band SAR alone is insufficient   |
+
+**Headline finding.** Late fusion of independent SAR and optical encoders consistently outperforms early concatenation-based fusion (3/3 seeds, gap ~0.34 Mg/ha against a pooled standard error of ~0.26 Mg/ha). The architecture of fusion matters more than the presence of fusion: naive channel concatenation does not extract value from SAR information that modality-specific encoding does. See [`docs/decisions.md`](docs/decisions.md) for full methodological rationale.
+
+Test-set evaluation (Phase 4) will produce the paper's headline numbers from the 72,033 untouched test patches.
 
 ---
 
@@ -142,7 +152,7 @@ uv run python -c "import earthaccess; earthaccess.login(strategy='interactive', 
 
 For Sentinel-2 access via CDSE openEO, register a free account at <https://dataspace.copernicus.eu/>. The openEO Python client handles authentication via OIDC device flow on first run.
 
-A Weights & Biases account (<https://wandb.ai/>) will be required from Phase 3 onward for experiment tracking; not yet needed.
+A Weights & Biases account (<https://wandb.ai/>) is used for experiment tracking from Phase 3 onward. Persist credentials with `uv run wandb login` (paste your API key from <https://wandb.ai/authorize>).
 
 ### 4. Smoke test
 
@@ -187,9 +197,13 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 19_inspect_dem.py           Visual sanity check on DEM
 20_extract_patches.py       Phase 2 final: extract 25×25 patches → Zarr
 
+21_train.py                 Phase 3: train one variant + seed with Hydra/W&B
+
+22_run_all_reporting.py     Phase 3: orchestrate the 12-run reporting batch
+
 Scripts numbered 11–13 are intentionally absent - they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
 
-A diagnostic utility lives at `scripts/tools/audit_s1.py` for cross-referencing the Hyp3 manifest, server-side job status, and local Zarr output state.
+Diagnostic utilities: `scripts/tools/audit_s1.py` cross-references the Hyp3 manifest, server-side job status, and local Zarr output state. `_reporting_status.py` in the project root reads the 12-run orchestration state and pulls W&B run summaries to show progress while a batch is running.
 
 ---
 
@@ -216,20 +230,40 @@ gedi-s1s2-agb/
 |-- README.md
 |-- LICENSE                              # MIT
 |-- configs/
-|   |-- base.yaml                        # default config
-|   `-- aoi/
-|       |-- dev.yaml                     # MGRS 29TNG (~110 x 110 km)
-|       `-- full.yaml                    # Northwest Iberia (paper AOI)
+|   |-- base.yaml                        # default config (composes train, model, aoi)
+|   |-- aoi/
+|   |   |-- dev.yaml                     # MGRS 29TNG (~110 x 110 km)
+|   |   `-- full.yaml                    # Northwest Iberia (paper AOI)
+|   |-- model/
+|   |   |-- s1_only.yaml                 # variant: SAR-only
+|   |   |-- s2_only.yaml                 # variant: optical-only
+|   |   |-- early.yaml                   # variant: early fusion
+|   |   `-- late.yaml                    # variant: late fusion
+|   |-- sweep/
+|   |   `-- s2_only.yaml                 # W&B Bayesian sweep config
+|   `-- train/
+|       `-- default.yaml                 # default training hyperparameters
 |-- src/biomass/
 |   |-- __init__.py
 |   |-- config.py                        # constants: beams, paths, variables
 |   |-- log_setup.py                     # logging configuration
-|   `-- data/
+|   |-- data/
+|   |   |-- __init__.py
+|   |   |-- aoi.py                       # named AOIs
+|   |   |-- gedi.py                      # GEDI L4A read and quality filter
+|   |   |-- gedi_pipeline.py             # end-to-end GEDI extraction
+|   |   `-- patches.py                   # patch extraction helpers
+|   |-- models/
+|   |   |-- __init__.py
+|   |   |-- backbone.py                  # ResNet-18-adapted encoder
+|   |   |-- heads.py                     # regression head
+|   |   `-- variants.py                  # 4 model variants + factory
+|   `-- training/
 |       |-- __init__.py
-|       |-- aoi.py                       # named AOIs
-|       |-- gedi.py                      # GEDI L4A read and quality filter
-|       |-- gedi_pipeline.py             # end-to-end GEDI extraction
-|       `-- patches.py                   # patch extraction helpers
+|       |-- dataset.py                   # Zarr-backed PyTorch Dataset
+|       |-- losses.py                    # Huber loss wrapper
+|       |-- metrics.py                   # streaming RMSE/MAE/R2/bias
+|       `-- loop.py                      # train/val loops with AMP
 |-- scripts/
 |   |-- 01_query_gedi.py                 # NASA Earthdata granule query
 |   |-- 03_extract_all_shots.py          # main GEDI extraction
@@ -239,8 +273,11 @@ gedi-s1s2-agb/
 |   |-- 16_build_s1_annual_composites.py # Sentinel-1 annual composites
 |   |-- 18_build_dem.py                  # Copernicus DEM (elevation + slope)
 |   |-- 20_extract_patches.py            # final Zarr patch store
+|   |-- 21_train.py                      # train one variant + seed
+|   |-- 22_run_all_reporting.py          # orchestrate 12-run batch
 |   `-- tools/
 |       `-- audit_s1.py                  # S1 manifest / Hyp3 / disk cross-check
+|-- _reporting_status.py                 # Phase 3 batch monitoring
 |-- tests/
 |   `-- test_imports.py                  # smoke tests
 |-- docs/
