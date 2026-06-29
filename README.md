@@ -4,7 +4,7 @@
 
 A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
 
-**Project status:** Phase 3 complete: model architecture + training infrastructure built; 12 reporting runs done (late fusion best at val RMSE 45.13 ± 0.23 Mg/ha). Phase 4 (test-set evaluation) pending.
+**Project status:** Phase 4 complete: test-set evaluation done across all 12 checkpoints. Late fusion best at test RMSE 50.33 ± 0.37 Mg/ha; advantage concentrated in high-biomass tree cover regimes. Phase 5 (wall-to-wall inference) pending.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
@@ -58,8 +58,8 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 1     | ✅ done        | GEDI L4A acquisition and quality filtering (813,124 shots)          |
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
 | 3     | ✅ done        | Model architecture + training pipeline; 12 reporting runs complete (4 variants × 3 seeds). Late fusion best at val RMSE 45.13 ± 0.23 Mg/ha. |
-| 4     | ⏳ pending     | Test-set evaluation on all 12 checkpoints; headline numbers and stratified analysis  |
-| 5     | pending        | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps     |
+| 4     | ✅ done        | Test-set evaluation: late fusion best at test RMSE 50.33 ± 0.37 Mg/ha. Stratified analysis by AGBD bin and land cover. |
+| 5     | ⏳ pending     | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps  |
 | 6     | pending        | Manuscript                                                           |
 
 ---
@@ -97,7 +97,30 @@ Phase 3 built the model training infrastructure and ran the full reporting batch
 
 **Headline finding.** Late fusion of independent SAR and optical encoders consistently outperforms early concatenation-based fusion (3/3 seeds, gap ~0.34 Mg/ha against a pooled standard error of ~0.26 Mg/ha). The architecture of fusion matters more than the presence of fusion: naive channel concatenation does not extract value from SAR information that modality-specific encoding does. See [`docs/decisions.md`](docs/decisions.md) for full methodological rationale.
 
-Test-set evaluation (Phase 4) will produce the paper's headline numbers from the 72,033 untouched test patches.
+Test-set evaluation completed in Phase 4 (results below).
+
+## What Phase 4 produced
+
+The 12 trained checkpoints were evaluated on the 72,033 untouched test patches. Four artifacts of paper-grade detail were produced: an overall metrics table, stratified metrics by AGBD bin and by land cover, and three publication-ready figures.
+
+**Headline test-set results (mean ± std across 3 seeds):**
+
+| Variant       | Test RMSE (Mg/ha) | Test R²       | Test Bias (Mg/ha) |
+|---------------|-------------------|---------------|-------------------|
+| Late fusion   | **50.33 ± 0.37**  | 0.441 ± 0.008 | −3.77 ± 3.88      |
+| Early fusion  | 50.69 ± 0.14      | 0.433 ± 0.003 | −5.02 ± 0.41      |
+| S2-only       | 50.87 ± 0.69      | 0.429 ± 0.015 | −6.80 ± 0.66      |
+| S1-only       | 59.12 ± 0.07      | 0.229 ± 0.001 | −8.16 ± 1.77      |
+
+**Three findings the stratified analysis reveals:**
+
+1. **The late-fusion advantage is concentrated in high-biomass tree cover.** In the 200-500 Mg/ha biomass bin, late fusion beats S2-only by 5.8 Mg/ha RMSE. In the 0-50 Mg/ha bin the variants are statistically tied. Equivalently, in tree-cover patches the gap is 0.70 Mg/ha; in grassland it drops to 0.16 Mg/ha. Fusion contributes precisely where optical alone saturates and SAR still carries information.
+
+2. **S1-only saturates dramatically above 100 Mg/ha.** Test RMSE rises from 29 Mg/ha (0-50 bin) to 189 Mg/ha (200-500 bin), confirming the published C-band saturation pattern. The 6-7 Mg/ha overall gap between S1-only and the optical-using variants is almost entirely from the high-biomass tail.
+
+3. **Early fusion extracts no measurable value from SAR.** Early fusion is statistically indistinguishable from S2-only (50.69 vs 50.87 Mg/ha), despite having access to the same 15-channel input that late fusion uses to achieve 0.54 Mg/ha lower RMSE. The architecture for combining heterogeneous modalities is what determines whether SAR information is usable.
+
+**Pre-computed artifacts:** `data/processed/test_predictions.parquet` (864,396 predictions), three metrics CSVs (`test_metrics_overall.csv`, `test_metrics_by_agbd_bin.csv`, `test_metrics_by_landcover.csv`), and three figures (`figures/predicted_vs_observed.png`, `figures/rmse_by_agbd_bin.png`, `figures/rmse_by_landcover.png`). See [`docs/decisions.md`](docs/decisions.md) for full methodological detail.
 
 ---
 
@@ -109,7 +132,7 @@ Test-set evaluation (Phase 4) will produce the paper's headline numbers from the
 | Sentinel-1 GRD (RTC γ⁰)        | 30 m → 10 m | SAR backscatter (VV, VH) + LIA     | ASF Hyp3                |
 | Sentinel-2 L2A                 | 10–20 m    | Optical reflectance                 | ESA via CDSE openEO     |
 | Copernicus DEM GLO-30          | 30 m → 10 m | Topography (elevation, slope)      | ESA via AWS Open Data   |
-| ESA WorldCover 2021            | 10 m       | Forest mask for inference (Phase 5) | ESA                     |
+| ESA WorldCover 2021            | 10 m       | Land cover stratification (Phase 4); forest mask (Phase 5) | ESA|
 | ESA CCI Biomass v5             | 100 m      | Independent comparison (Phase 5)    | ESA                     |
 | Spanish IFN (NFI)              | plot-level | Independent validation (Phase 5)    | MITECO Spain            |
 
@@ -168,6 +191,7 @@ uv run python scripts/01_query_gedi.py          # reports N granules in the dev 
 ## Pipeline scripts
 
 The project's data pipeline is a sequence of numbered scripts in `scripts/`. Each script is Hydra-configurable and produces inputs for subsequent steps. The current pipeline:
+
 01_query_gedi.py            Query NASA Earthdata for GEDI L4A granules
 
 02_prototype_granule_read.py Validate single-granule HDF5 reading
@@ -177,14 +201,17 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 04_retry_failed.py          Retry granules that failed in step 03
 
 05_eda_gedi.py              Exploratory data analysis on filtered shots
+
 06_query_sentinel.py        Validate CDSE openEO connection
 
 07_openeo_smoke_test.py     Small NDVI test (1 km tile, 1 month)
 
 08_openeo_cost_probe.py     Empirical credit cost measurement
+
 09_build_s2_composite.py    Phase 2: build annual S2 median composites
 
 10_inspect_composite.py     Visual sanity check on S2 composites
+
 14_select_s1_scenes.py      Select 12 S1 scenes/year for Hyp3 processing
 
 15_submit_hyp3_jobs.py      Submit Hyp3 RTC jobs and download outputs
@@ -192,14 +219,26 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 16_build_s1_annual_composites.py  Assemble annual S1 composites from Hyp3 RTC
 
 17_inspect_s1.py            Visual sanity check on S1 composites
+
 18_build_dem.py             Build Copernicus DEM (elevation + slope)
 
 19_inspect_dem.py           Visual sanity check on DEM
+
 20_extract_patches.py       Phase 2 final: extract 25×25 patches → Zarr
 
 21_train.py                 Phase 3: train one variant + seed with Hydra/W&B
 
 22_run_all_reporting.py     Phase 3: orchestrate the 12-run reporting batch
+
+23_build_worldcover.py      Phase 4: download/reproject ESA WorldCover 2021
+
+24_assign_landcover.py      Phase 4: assign majority land cover per patch
+
+25_run_inference.py         Phase 4: run inference on test set for 12 checkpoints
+
+26_compute_metrics.py       Phase 4: compute overall + stratified test metrics
+
+27_make_figures.py          Phase 4: generate paper figures
 
 Scripts numbered 11–13 are intentionally absent - they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
 
@@ -275,6 +314,11 @@ gedi-s1s2-agb/
 |   |-- 20_extract_patches.py            # final Zarr patch store
 |   |-- 21_train.py                      # train one variant + seed
 |   |-- 22_run_all_reporting.py          # orchestrate 12-run batch
+|   |-- 23_build_worldcover.py           # ESA WorldCover for dev AOI
+|   |-- 24_assign_landcover.py           # majority class per patch
+|   |-- 25_run_inference.py              # test-set inference (12 checkpoints)
+|   |-- 26_compute_metrics.py            # overall + stratified test metrics
+|   |-- 27_make_figures.py               # paper figures
 |   `-- tools/
 |       `-- audit_s1.py                  # S1 manifest / Hyp3 / disk cross-check
 |-- _reporting_status.py                 # Phase 3 batch monitoring

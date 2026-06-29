@@ -307,6 +307,37 @@ Chronological record of design and methodology decisions. Each entry records wha
 
 **Alternatives considered:** Per-variant hyperparameter sweeps (rejected: would have multiplied compute by 4x and confounded the fusion-strategy comparison with per-variant tuning differences). Multi-year temporal stacking instead of year-matched
 
+## 2026-06-29 — Phase 4: test-set evaluation
+
+**Decision:** All 12 trained checkpoints from Phase 3 evaluated on the 72,033-patch test partition. Test metrics computed overall and stratified by AGBD bin (Lang 2023's bins: 0-50, 50-100, 100-150, 150-200, 200-500 Mg/ha) and by majority land cover class (ESA WorldCover 2021). Three publication-ready figures generated: predicted-vs-observed hexbin scatter, RMSE by AGBD bin, RMSE by land cover.
+
+**Headline test-set results (mean ± std across 3 seeds):**
+
+| Variant       | Test RMSE (Mg/ha) | Test R²       | Test Bias (Mg/ha) |
+|---------------|-------------------|---------------|-------------------|
+| Late fusion   | **50.33 ± 0.37**  | 0.441 ± 0.008 | −3.77 ± 3.88      |
+| Early fusion  | 50.69 ± 0.14      | 0.433 ± 0.003 | −5.02 ± 0.41      |
+| S2-only       | 50.87 ± 0.69      | 0.429 ± 0.015 | −6.80 ± 0.66      |
+| S1-only       | 59.12 ± 0.07      | 0.229 ± 0.001 | −8.16 ± 1.77      |
+
+**Test vs. validation comparison:** Test RMSE is 5-8 Mg/ha higher than validation RMSE for every variant (val late fusion 45.13 → test 50.33; val S2-only 45.39 → test 50.87; val S1-only 51.50 → test 59.12). The validation-to-test gap is consistent across variants, indicating the test partition is intrinsically harder (likely due to spatial-block sampling placing more high-biomass or more heterogeneous blocks in test). The variant ordering preserves across val and test: late fusion best, then early fusion ≈ S2-only, then S1-only.
+
+**Key finding 1 - Late fusion advantage is concentrated in high-biomass tree cover.** Stratification by AGBD bin and by land cover both reveal that the late-fusion advantage over S2-only is regime-dependent rather than uniform. In the 200-500 Mg/ha biomass bin, late fusion RMSE is 158.7 Mg/ha vs. S2-only's 164.5 Mg/ha (Δ = 5.8 Mg/ha). In the 0-50 Mg/ha bin, the variants are statistically tied (~21 Mg/ha each). Equivalently, in tree-cover patches (n=46,503) late fusion beats S2-only by 0.70 Mg/ha; in grassland (n=22,609) the gap is 0.16 Mg/ha; in cropland (n=2,380) the gap is 0.11 Mg/ha. The fusion contribution to model performance is concentrated in regimes where optical alone saturates (closed canopy, high biomass) and where SAR is still in its informative range.
+
+**Key finding 2 - S1-only saturates dramatically above 100 Mg/ha.** S1-only test RMSE rises from 29 Mg/ha (0-50 bin) to 189 Mg/ha (200-500 bin): a 6.5× increase, while optical-using variants increase 7-8× from 21 to 159-165. In tree cover specifically, S1-only is 10 Mg/ha worse than any optical-using variant. C-band SAR alone is insufficient for biomass estimation at the resolution and biomass range of this AOI, consistent with the published understanding that C-band backscatter saturates around 100 Mg/ha biomass.
+
+**Key finding 3 - Early fusion fails to extract value from SAR information.** Early fusion test RMSE (50.69 ± 0.14) is statistically indistinguishable from S2-only (50.87 ± 0.69), despite having access to the SAR channels that late fusion uses to achieve a 0.54 Mg/ha advantage. The architectural choice — naive concatenation versus modality-specific encoding, determines whether the model can use SAR information. This is the methodologically central finding: the fusion *strategy* matters more than the *presence* of fusion.
+
+**Late fusion bias variance investigation:** The cross-seed bias standard deviation for late fusion (3.88 Mg/ha) is substantially larger than for any other variant (≤ 1.8 Mg/ha). Per-seed analysis: late fusion seed 42 had bias +0.46 (best epoch 15), seed 7 had bias −4.62 (best epoch 25), seed 123 had bias −7.16 (best epoch 26). The correlation between best-epoch and bias magnitude suggests that late fusion's larger parameter count produces a longer training trajectory along which bias drifts toward under-prediction. Different seeds catch the model at different positions on this trajectory. RMSE remains tightly clustered across seeds (50.03 to 50.74), so the variance is in bias direction rather than overall accuracy. We report bias as mean ± std faithfully; the figures use seed 7 (most representative) for the predicted-vs-observed scatter.
+
+**Land cover stratification methodology:** ESA WorldCover 2021 v200 reprojected from EPSG:4326 to the 10 m UTM 29N project grid using nearest-neighbor (preserving categorical values). Each patch assigned its majority land cover class within the 25×25 window. Mean patch purity (fraction of pixels in the majority class) is 0.73, reflecting the mosaic character of the Galician landscape. Test patches distribute as: tree cover 64.6% (n=46,503), grassland 31.4% (n=22,609), cropland 3.3% (n=2,380), other 0.9% (n=541). The all-patch and test-only distributions match within 2 percentage points, confirming the spatial-block split did not over- or under-sample any land cover.
+
+**Pre-computed artifacts saved:** `data/processed/test_predictions.parquet` (864,396 predictions, 5 columns: patch_id, variant, seed, true_agbd, pred_agbd; 5.4 MB), `data/processed/test_metrics_overall.csv`, `data/processed/test_metrics_by_agbd_bin.csv`, `data/processed/test_metrics_by_landcover.csv`, `data/processed/patch_landcover_dev.parquet`, three figures in `data/processed/figures/`. Inference wall time: 35 minutes for all 12 checkpoints (~3 minutes per checkpoint).
+
+**Methodological framing for the paper:** "Fusion strategy matters more than fusion presence. Late fusion of independent SAR and optical encoders reduces test RMSE by 0.54 Mg/ha relative to optical-only baseline, with the improvement concentrated in high-biomass tree cover (200-500 Mg/ha bin: Δ = 5.8 Mg/ha; tree cover: Δ = 0.70 Mg/ha). Naive concatenation-based early fusion produces no measurable improvement over optical-only, demonstrating that the architectural choice for combining heterogeneous remote sensing modalities is more important than the presence of those modalities in the input."
+
+**Alternatives considered:** Reporting test metrics for seed 42 only (rejected: would not capture the late-fusion bias variance, and seed 42 happens to be unrepresentative for late fusion specifically). Pooling predictions across seeds before computing RMSE (rejected for the headline; kept consistent with Phase 3 validation reporting). Stratifying by canopy cover percentile instead of WorldCover class (rejected: WorldCover classes are more interpretable to a remote-sensing audience and align with the existing literature).
+
 ## Appendix: Template for new entries
 
 ```
