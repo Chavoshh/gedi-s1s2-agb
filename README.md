@@ -112,6 +112,12 @@ The 12 trained checkpoints were evaluated on the 72,033 untouched test patches. 
 | S2-only       | 50.87 ± 0.69      | 0.429 ± 0.015 | −6.80 ± 0.66      |
 | S1-only       | 59.12 ± 0.07      | 0.229 ± 0.001 | −8.16 ± 1.77      |
 
+![Predicted vs. observed AGBD on the test set](docs/figures/predicted_vs_observed.png)
+*Predicted vs. observed above-ground biomass on the 72,033-patch test set (seed 7). S1-only saturates below 200 Mg/ha; late fusion aligns best with the 1:1 line at high biomass.*
+
+![Test RMSE by AGBD bin](docs/figures/rmse_by_agbd_bin.png)
+*Test RMSE stratified by true biomass. The late-fusion advantage concentrates in the 200-500 Mg/ha bin; variants are tied below 50 Mg/ha.*
+
 **Three findings the stratified analysis reveals:**
 
 1. **The late-fusion advantage is concentrated in high-biomass tree cover.** In the 200-500 Mg/ha biomass bin, late fusion beats S2-only by 5.8 Mg/ha RMSE. In the 0-50 Mg/ha bin the variants are statistically tied. Equivalently, in tree-cover patches the gap is 0.70 Mg/ha; in grassland it drops to 0.16 Mg/ha. Fusion contributes precisely where optical alone saturates and SAR still carries information.
@@ -121,6 +127,20 @@ The 12 trained checkpoints were evaluated on the 72,033 untouched test patches. 
 3. **Early fusion extracts no measurable value from SAR.** Early fusion is statistically indistinguishable from S2-only (50.69 vs 50.87 Mg/ha), despite having access to the same 15-channel input that late fusion uses to achieve 0.54 Mg/ha lower RMSE. The architecture for combining heterogeneous modalities is what determines whether SAR information is usable.
 
 **Pre-computed artifacts:** `data/processed/test_predictions.parquet` (864,396 predictions), three metrics CSVs (`test_metrics_overall.csv`, `test_metrics_by_agbd_bin.csv`, `test_metrics_by_landcover.csv`), and three figures (`figures/predicted_vs_observed.png`, `figures/rmse_by_agbd_bin.png`, `figures/rmse_by_landcover.png`). See [`docs/decisions.md`](docs/decisions.md) for full methodological detail.
+
+## What Phase 5 has produced so far
+
+Phase 5 turns the trained models into wall-to-wall biomass maps over the full dev AOI and validates them against independent references. Mapping is complete; external validation (ESA CCI Biomass, Spanish IFN) is in progress.
+
+**Wall-to-wall maps (100 m resolution, 2021 composites).** Patch-based tiled inference on a stride-10 grid, reproducing the training computation exactly (verified: correlation 1.0000 against Phase 4 test predictions). Six maps produced — three late-fusion seeds plus S2-only, S1-only, and early-fusion (seed 7) for comparison. Output at 100 m matches ESA CCI Biomass v5 resolution and is honest about the ~25 m native resolution of GEDI supervision.
+
+The map distributions confirm the model behaves as expected: early fusion tracks S2-only almost exactly (mean 68.5 vs 68.0 Mg/ha), while S1-only is visibly compressed (95th percentile 123 vs ~157 Mg/ha, hard ceiling near 221 Mg/ha) - the C-band saturation signature seen in the Phase 4 stratified analysis, now visible spatially.
+
+**Ensemble mean and uncertainty.** The three late-fusion seeds are combined into a per-pixel mean (the published biomass map) and a per-pixel standard deviation (epistemic uncertainty). The ensemble is confident: mean above-ground biomass 66.9 Mg/ha, mean uncertainty 5.6 Mg/ha, and a mean coefficient of variation of 7.6%. Uncertainty concentrates in high-biomass pixels, consistent with the Phase 4 finding that late-fusion seed variance is largest in the high-biomass regime.
+
+**A note on the fully convolutional detour.** The original plan was single-pass fully convolutional inference (converting the global average pool and dense head to convolutions). The conversion reproduced patch predictions exactly on isolated 25 x 25 inputs but drifted badly on large tiles, because the backbone's global pooling plus strided downsampling is not translation-equivariant. Patch-based tiled inference was adopted instead — slower in principle but provably correct, and fast enough in practice (~1 hour for all six maps) after batching the raster reads by row-strip. Full rationale in the decisions log.
+
+**Still to come in Phase 5:** comparison against ESA CCI Biomass v5, validation against Spanish National Forest Inventory (IFN) plots, and the Phase 5 map/comparison figures.
 
 ---
 
@@ -240,6 +260,10 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 
 27_make_figures.py          Phase 4: generate paper figures
 
+28_wall_to_wall_inference.py  Phase 5: patch-based inference -> biomass maps (100 m)
+
+29_ensemble_uncertainty.py    Phase 5: ensemble mean + uncertainty (3 seeds)
+
 Scripts numbered 11–13 are intentionally absent - they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
 
 Diagnostic utilities: `scripts/tools/audit_s1.py` cross-references the Hyp3 manifest, server-side job status, and local Zarr output state. `_reporting_status.py` in the project root reads the 12-run orchestration state and pulls W&B run summaries to show progress while a batch is running.
@@ -319,6 +343,8 @@ gedi-s1s2-agb/
 |   |-- 25_run_inference.py              # test-set inference (12 checkpoints)
 |   |-- 26_compute_metrics.py            # overall + stratified test metrics
 |   |-- 27_make_figures.py               # paper figures
+|   |-- 28_wall_to_wall_inference.py     # Phase 5: wall-to-wall maps (100 m)
+|   |-- 29_ensemble_uncertainty.py       # Phase 5: ensemble mean + uncertainty
 |   `-- tools/
 |       `-- audit_s1.py                  # S1 manifest / Hyp3 / disk cross-check
 |-- _reporting_status.py                 # Phase 3 batch monitoring
