@@ -338,6 +338,28 @@ Chronological record of design and methodology decisions. Each entry records wha
 
 **Alternatives considered:** Reporting test metrics for seed 42 only (rejected: would not capture the late-fusion bias variance, and seed 42 happens to be unrepresentative for late fusion specifically). Pooling predictions across seeds before computing RMSE (rejected for the headline; kept consistent with Phase 3 validation reporting). Stratifying by canopy cover percentile instead of WorldCover class (rejected: WorldCover classes are more interpretable to a remote-sensing audience and align with the existing literature).
 
+## 2026-07-01 — Phase 5 (in progress): wall-to-wall inference + ensemble uncertainty
+
+**Decision:** Produce wall-to-wall biomass maps over the full dev AOI from the trained checkpoints, at 100 m resolution, using 2021 input composites. Late fusion is the headline variant (3-seed ensemble mean + uncertainty); S2-only, S1-only, and early fusion (seed 7) are supporting maps.
+
+**Fully convolutional inference abandoned.** The original plan was to convert the patch-regression models to fully convolutional form (replace AdaptiveAvgPool2d(1) with sliding AvgPool2d, Linear→Conv2d 1×1) for single-pass dense inference. Verified the conversion reproduces patch predictions exactly on a 25×25 input (abs diff ≤ 7.6e-6). But on larger tiles the interior predictions drifted badly (25×25→56.2, 500×500→15.5 for the same center pixel). Root cause: the encoder's AdaptiveAvgPool2d(1) + strided downsampling is not translation-equivariant — a sliding 7×7 pool over a large feature map does not reproduce the global pool of an isolated 25×25 patch, because intermediate strided-conv activations depend on the surrounding spatial context. This is a fundamental architecture limitation, not a code bug. Fully convolutional conversion of patch-CNNs with global pooling requires retraining, which was out of scope.
+
+**Adopted: patch-based tiled inference at stride 10 (100 m output).** Extract real 25×25 patches on a stride-10 grid, batch them through the original trained model. This reproduces the training computation exactly (verified: correlation 1.0000, mean diff +0.003 Mg/ha, max |diff| 0.179 vs Phase 4 test predictions on 2021 patches). Output at 100 m matches ESA CCI Biomass v5 resolution, simplifying the planned comparison. Honest about resolution: GEDI supervision is inherently ~25 m, so 100 m output is not false precision.
+
+**Performance fix.** Initial implementation read each patch with individual windowed rasterio reads (~3.3M tiny reads/job) — did not finish one job in 4+ hours. Rewrote as strip-batched: process output rows in strips of 40, reading one padded full-width row-block per strip (~28 large sequential reads/job) and slicing patches from memory. Result: ~12 min/job, ~1 hour for all 6 maps.
+
+**Input nodata handling.** S2 composite uses -32768 sentinel; S1 and DEM use NaN. The reader detects invalid pixels per band, replaces with channel mean (→0 after normalization) so the model receives finite input, and masks output where any input band was nodata at the patch center. Predictions clipped to [0, 500] Mg/ha (training label range) to suppress extreme extrapolation near land/ocean boundaries.
+
+**Maps produced (6, 100 m, 989×1122 px, ~95% coverage over land):**
+- biomass_late_fusion_seed{42,7,123}.tif
+- biomass_s2_only_seed7.tif, biomass_s1_only_seed7.tif, biomass_early_fusion_seed7.tif
+
+Distributions confirm correctness: early fusion tracks S2-only (mean 68.5 vs 68.0, median 48.5 vs 47.0) as Phase 4 predicted; S1-only is compressed (p95 122.8, max 220.9) reflecting C-band saturation; optical variants reach the 500 cap. AOI-wide means (~68 Mg/ha) are lower than test-set means because the full AOI has more low-biomass grassland (33%) than the tree-heavy test set (64% tree cover).
+
+**Ensemble mean + uncertainty (script 29).** Per-pixel mean and sample std across the 3 late-fusion seeds. Ensemble mean 66.9 Mg/ha (median 47.4). Uncertainty std: mean 5.63, median 3.21, p95 18.17 Mg/ha; mean coefficient of variation 7.6%. The 3 seeds agree well at the aggregate level; uncertainty concentrates in high-biomass pixels, consistent with the Phase 4 finding that late-fusion seed variance is largest in the high-biomass regime. Outputs: biomass_late_fusion_mean.tif (published map), biomass_late_fusion_std.tif (uncertainty layer).
+
+**Still to do in Phase 5:** ESA CCI Biomass v5 comparison, Spanish IFN validation, Phase 5 figures.
+
 ## Appendix: Template for new entries
 
 ```

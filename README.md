@@ -4,7 +4,7 @@
 
 A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
 
-**Project status:** Phase 4 complete: test-set evaluation done across all 12 checkpoints. Late fusion best at test RMSE 50.33 ± 0.37 Mg/ha; advantage concentrated in high-biomass tree cover regimes. Phase 5 (wall-to-wall inference) pending.
+**Project status:** Phase 5 in progress: wall-to-wall biomass maps produced at 100 m (late-fusion ensemble mean + per-pixel uncertainty, mean CV 7.6%). External validation against ESA CCI Biomass and Spanish IFN pending.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
@@ -59,7 +59,7 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
 | 3     | ✅ done        | Model architecture + training pipeline; 12 reporting runs complete (4 variants × 3 seeds). Late fusion best at val RMSE 45.13 ± 0.23 Mg/ha. |
 | 4     | ✅ done        | Test-set evaluation: late fusion best at test RMSE 50.33 ± 0.37 Mg/ha. Stratified analysis by AGBD bin and land cover. |
-| 5     | ⏳ pending     | Wall-to-wall inference, CCI Biomass comparison, uncertainty maps  |
+| 5     | 🚧 in progress | Wall-to-wall maps done (100 m, ensemble mean + uncertainty). CCI/IFN validation pending. |
 | 6     | pending        | Manuscript                                                           |
 
 ---
