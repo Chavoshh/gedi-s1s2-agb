@@ -132,7 +132,7 @@ The 12 trained checkpoints were evaluated on the 72,033 untouched test patches. 
 
 Phase 5 turned the trained models into wall-to-wall biomass maps over the full dev AOI and compared them against an independent product.
 
-**Wall-to-wall maps (100 m, 2021).** Patch-based tiled inference on a stride-10 grid, reproducing the training computation exactly (correlation 1.0000 against Phase 4 test predictions). Six maps: three late-fusion seeds plus S2-only, S1-only, and early-fusion. The map distributions confirm expected behavior — early fusion tracks S2-only, while S1-only is visibly compressed (C-band saturation).
+**Wall-to-wall maps (100 m, 2021).** Patch-based tiled inference on a stride-10 grid, reproducing the training computation exactly (correlation 1.0000 against Phase 4 test predictions). Six maps: three late-fusion seeds plus S2-only, S1-only, and early-fusion. The map distributions confirm expected behavior: early fusion tracks S2-only, while S1-only is visibly compressed (C-band saturation).
 
 **Ensemble mean and uncertainty.** The three late-fusion seeds combine into a per-pixel mean (the published map, 66.9 Mg/ha average) and a per-pixel standard deviation (uncertainty, mean coefficient of variation 7.6%). Uncertainty concentrates in high-biomass pixels.
 
@@ -140,6 +140,9 @@ Phase 5 turned the trained models into wall-to-wall biomass maps over the full d
 *Wall-to-wall above-ground biomass over NW Iberia (late-fusion ensemble, 2021). The tilted footprint is the UTM-reprojected AOI extent; gray is nodata (ocean, gaps, and masked boundary pixels).*
 
 **Comparison with ESA CCI Biomass v5.** Over forest pixels (where CCI maps woody biomass), agreement is moderate (r = 0.51, RMSE 52.7 Mg/ha, bias +1.9). Stratified analysis reveals systematic regression to the mean: the model over-predicts low biomass and under-predicts high biomass (fitted slope ≈ 0.39). This is the documented saturation behavior of GEDI-supervised regression with skewed labels which affects all variants, and late fusion (least compressed) is the reported map. Where CCI is zero (non-forest), the pixels are 81% grassland and cropland, confirming the difference there is definitional (woody vs. GEDI-calibrated continuous biomass) rather than error.
+
+![Agreement with ESA CCI Biomass](docs/figures/cci_agreement.png)
+*Pixel-level agreement between our late-fusion ensemble map and ESA CCI Biomass v5 over forest pixels. The fitted slope (~0.39, red) below the 1:1 line (dashed) shows the regression-to-the-mean characteristic of GEDI-supervised biomass regression: low biomass over-predicted, high biomass under-predicted.*
 
 **Scope note.** The paper's contribution is the controlled fusion comparison (Phases 3-4); the wall-to-wall map demonstrates spatial fidelity while honestly documenting its dynamic-range limitation. Plot-level validation against the Spanish National Forest Inventory is deferred to a potential extended (JSTARS) version, where deriving biomass from tree-level measurements can be treated properly.
 
@@ -155,7 +158,7 @@ Phase 5 turned the trained models into wall-to-wall biomass maps over the full d
 | Copernicus DEM GLO-30          | 30 m → 10 m | Topography (elevation, slope)      | ESA via AWS Open Data   |
 | ESA WorldCover 2021            | 10 m       | Land cover stratification (Phase 4); forest mask (Phase 5) | ESA|
 | ESA CCI Biomass v5             | 100 m      | Independent comparison (Phase 5)    | ESA                     |
-| Spanish IFN (NFI)              | plot-level | Independent validation (Phase 5)    | MITECO Spain            |
+| Spanish IFN (NFI)              | plot-level | Independent validation (deferred to JSTARS extension) | MITECO Spain  |
 
 ---
 
