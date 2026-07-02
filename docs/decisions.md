@@ -360,6 +360,24 @@ Distributions confirm correctness: early fusion tracks S2-only (mean 68.5 vs 68.
 
 **Still to do in Phase 5:** ESA CCI Biomass v5 comparison, Spanish IFN validation, Phase 5 figures.
 
+## 2026-07-02 — Phase 5 complete: wall-to-wall maps, ensemble, CCI comparison
+
+**Wall-to-wall inference (script 28).** Patch-based tiled inference at stride 10 (100 m output) reproducing the training computation exactly (verified correlation 1.0000 vs Phase 4 test predictions on 2021 patches). Six maps: three late-fusion seeds + S2-only, S1-only, early-fusion (seed 7). Input year 2021. Strip-batched raster reading (one padded row-block per strip) after an initial per-patch implementation proved I/O-bound; final runtime ~1 hour for all six maps.
+
+**Fully convolutional inference rejected.** Converting the global-average-pool + dense head to a sliding-window fully convolutional form reproduced patch predictions exactly on isolated 25×25 inputs but drifted badly on large tiles (25×25 → 56.2, 500×500 → 15.5 for the same center pixel). Cause: the backbone's AdaptiveAvgPool2d + strided downsampling is not translation-equivariant. Documented as a dead end; patch-based inference adopted instead.
+
+**Ensemble + uncertainty (script 29).** Per-pixel mean and sample std across the three late-fusion seeds. Ensemble mean 66.9 Mg/ha; uncertainty mean 5.6 Mg/ha, mean coefficient of variation 7.6%. Uncertainty concentrates in high-biomass pixels, consistent with the Phase 4 finding that late-fusion seed variance peaks at high biomass.
+
+**Boundary artifact masking (script 32).** Patches straddling the AOI boundary receive partially nodata-filled input (missing pixels set to channel mean), producing out-of-distribution extrapolation clamped to the 500 Mg/ha training cap (~0.2% of pixels, clustered in corners). These clipped pixels are unreliable and masked to nodata. Map max after masking: 400.6 Mg/ha.
+
+**ESA CCI Biomass v5 comparison (script 30).** Reprojected the N50W010 CCI tile (2021, 100 m, EPSG:4326) onto our UTM grid (bilinear). CCI maps woody biomass: ~25% of AOI pixels are 0, corresponding to non-forest (Comparison B confirmed: 57.5% grassland, 23.3% cropland among CCI zeros). Fair comparison restricted to forest pixels (CCI > 0): agreement is moderate (r = 0.51, RMSE 52.7 Mg/ha, bias +1.9). Per-bin analysis reveals systematic regression to the mean — our map over-predicts low biomass (+29 Mg/ha in 0-50 bin) and under-predicts high biomass (-102 Mg/ha in 200-300 bin), with a fitted slope of ~0.39. This is the documented saturation behavior of GEDI-supervised regression with skewed labels, shared across all variants; late fusion (least compressed) is the headline. Alignment verified (best pixel offset 0,0). Framed as agreement with an established EO product, not ground-truth validation.
+
+**Spanish IFN validation deferred.** Plot-level field validation via the National Forest Inventory would require deriving biomass from tree-level measurements via allometric equations (a substantial sub-task with its own uncertainties), and public IFN plot coordinates are degraded to ~1 km. Deferred to a potential JSTARS extension where page space permits proper treatment. CCI is the external comparison for the GRSL letter.
+
+**Figures (script 31).** Four publication figures: ensemble biomass map, uncertainty map, three-variant comparison, and CCI agreement scatter. Maps rendered over neutral background with framed margins (the UTM-reprojected AOI footprint is a tilted parallelogram; shown as scene extent per standard practice). Color scale capped at the 99th percentile (~200 Mg/ha) for legibility.
+
+**Scientific framing.** The paper's contribution is the controlled fusion comparison (Phases 3-4), not an absolute biomass map. The wall-to-wall map demonstrates spatial fidelity (captures where biomass is) while honestly documenting dynamic-range compression (regression to the mean): a known, expected property of the regression setup affecting all variants equally. The single most improvable lever, hardware aside, is the loss/label treatment (e.g., log-transform or balanced sampling) to reduce compression which  noted as future work.
+
 ## Appendix: Template for new entries
 
 ```

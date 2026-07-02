@@ -2,9 +2,9 @@
 
 > Sparse-supervised regression for above-ground biomass: GEDI L4A lidar footprints as labels, Sentinel-1 SAR and Sentinel-2 optical imagery as inputs, dense biomass maps as outputs.
 
-A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with KIT C4LaND-style positions on BIOMASS and NISAR forest monitoring.
+A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with related positions.
 
-**Project status:** Phase 5 in progress: wall-to-wall biomass maps produced at 100 m (late-fusion ensemble mean + per-pixel uncertainty, mean CV 7.6%). External validation against ESA CCI Biomass and Spanish IFN pending.
+**Project status:** Phase 5 complete: wall-to-wall biomass maps at 100 m (late-fusion ensemble mean + per-pixel uncertainty), compared against ESA CCI Biomass v5. All experimental work done; manuscript (Phase 6) is the remaining step. Target venue: IEEE GRSL.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.
 
 ---
@@ -59,8 +59,8 @@ Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense 
 | 2     | ✅ done        | Sentinel-1/2 composites, DEM, patch dataset (375,817 patches)       |
 | 3     | ✅ done        | Model architecture + training pipeline; 12 reporting runs complete (4 variants × 3 seeds). Late fusion best at val RMSE 45.13 ± 0.23 Mg/ha. |
 | 4     | ✅ done        | Test-set evaluation: late fusion best at test RMSE 50.33 ± 0.37 Mg/ha. Stratified analysis by AGBD bin and land cover. |
-| 5     | 🚧 in progress | Wall-to-wall maps done (100 m, ensemble mean + uncertainty). CCI/IFN validation pending. |
-| 6     | pending        | Manuscript                                                           |
+| 5     | ✅ done        | Wall-to-wall maps (100 m), ensemble mean + uncertainty, ESA CCI Biomass comparison. IFN deferred to JSTARS extension. |
+| 6     | ⏳ pending     | Manuscript preparation (IEEE GRSL, 5-page letter) |                                                        |
 
 ---
 
@@ -128,19 +128,20 @@ The 12 trained checkpoints were evaluated on the 72,033 untouched test patches. 
 
 **Pre-computed artifacts:** `data/processed/test_predictions.parquet` (864,396 predictions), three metrics CSVs (`test_metrics_overall.csv`, `test_metrics_by_agbd_bin.csv`, `test_metrics_by_landcover.csv`), and three figures (`figures/predicted_vs_observed.png`, `figures/rmse_by_agbd_bin.png`, `figures/rmse_by_landcover.png`). See [`docs/decisions.md`](docs/decisions.md) for full methodological detail.
 
-## What Phase 5 has produced so far
+## What Phase 5 produced
 
-Phase 5 turns the trained models into wall-to-wall biomass maps over the full dev AOI and validates them against independent references. Mapping is complete; external validation (ESA CCI Biomass, Spanish IFN) is in progress.
+Phase 5 turned the trained models into wall-to-wall biomass maps over the full dev AOI and compared them against an independent product.
 
-**Wall-to-wall maps (100 m resolution, 2021 composites).** Patch-based tiled inference on a stride-10 grid, reproducing the training computation exactly (verified: correlation 1.0000 against Phase 4 test predictions). Six maps produced — three late-fusion seeds plus S2-only, S1-only, and early-fusion (seed 7) for comparison. Output at 100 m matches ESA CCI Biomass v5 resolution and is honest about the ~25 m native resolution of GEDI supervision.
+**Wall-to-wall maps (100 m, 2021).** Patch-based tiled inference on a stride-10 grid, reproducing the training computation exactly (correlation 1.0000 against Phase 4 test predictions). Six maps: three late-fusion seeds plus S2-only, S1-only, and early-fusion. The map distributions confirm expected behavior — early fusion tracks S2-only, while S1-only is visibly compressed (C-band saturation).
 
-The map distributions confirm the model behaves as expected: early fusion tracks S2-only almost exactly (mean 68.5 vs 68.0 Mg/ha), while S1-only is visibly compressed (95th percentile 123 vs ~157 Mg/ha, hard ceiling near 221 Mg/ha) - the C-band saturation signature seen in the Phase 4 stratified analysis, now visible spatially.
+**Ensemble mean and uncertainty.** The three late-fusion seeds combine into a per-pixel mean (the published map, 66.9 Mg/ha average) and a per-pixel standard deviation (uncertainty, mean coefficient of variation 7.6%). Uncertainty concentrates in high-biomass pixels.
 
-**Ensemble mean and uncertainty.** The three late-fusion seeds are combined into a per-pixel mean (the published biomass map) and a per-pixel standard deviation (epistemic uncertainty). The ensemble is confident: mean above-ground biomass 66.9 Mg/ha, mean uncertainty 5.6 Mg/ha, and a mean coefficient of variation of 7.6%. Uncertainty concentrates in high-biomass pixels, consistent with the Phase 4 finding that late-fusion seed variance is largest in the high-biomass regime.
+![Above-ground biomass map](docs/figures/biomass_map_ensemble.png)
+*Wall-to-wall above-ground biomass over NW Iberia (late-fusion ensemble, 2021). The tilted footprint is the UTM-reprojected AOI extent; gray is nodata (ocean, gaps, and masked boundary pixels).*
 
-**A note on the fully convolutional detour.** The original plan was single-pass fully convolutional inference (converting the global average pool and dense head to convolutions). The conversion reproduced patch predictions exactly on isolated 25 x 25 inputs but drifted badly on large tiles, because the backbone's global pooling plus strided downsampling is not translation-equivariant. Patch-based tiled inference was adopted instead — slower in principle but provably correct, and fast enough in practice (~1 hour for all six maps) after batching the raster reads by row-strip. Full rationale in the decisions log.
+**Comparison with ESA CCI Biomass v5.** Over forest pixels (where CCI maps woody biomass), agreement is moderate (r = 0.51, RMSE 52.7 Mg/ha, bias +1.9). Stratified analysis reveals systematic regression to the mean: the model over-predicts low biomass and under-predicts high biomass (fitted slope ≈ 0.39). This is the documented saturation behavior of GEDI-supervised regression with skewed labels which affects all variants, and late fusion (least compressed) is the reported map. Where CCI is zero (non-forest), the pixels are 81% grassland and cropland, confirming the difference there is definitional (woody vs. GEDI-calibrated continuous biomass) rather than error.
 
-**Still to come in Phase 5:** comparison against ESA CCI Biomass v5, validation against Spanish National Forest Inventory (IFN) plots, and the Phase 5 map/comparison figures.
+**Scope note.** The paper's contribution is the controlled fusion comparison (Phases 3-4); the wall-to-wall map demonstrates spatial fidelity while honestly documenting its dynamic-range limitation. Plot-level validation against the Spanish National Forest Inventory is deferred to a potential extended (JSTARS) version, where deriving biomass from tree-level measurements can be treated properly.
 
 ---
 
@@ -264,6 +265,12 @@ The project's data pipeline is a sequence of numbered scripts in `scripts/`. Eac
 
 29_ensemble_uncertainty.py    Phase 5: ensemble mean + uncertainty (3 seeds)
 
+30_compare_cci.py             Phase 5: ESA CCI Biomass v5 comparison
+
+31_make_phase5_figures.py     Phase 5: map + uncertainty + CCI figures
+
+32_clean_map_artifacts.py     Phase 5: mask boundary extrapolation pixels
+
 Scripts numbered 11–13 are intentionally absent - they were used for an abandoned CDSE Sentinel-1 monthly-chunking strategy. See the 2026-06-12 entry in the decisions log for context. The numbering gap is preserved for git diff continuity.
 
 Diagnostic utilities: `scripts/tools/audit_s1.py` cross-references the Hyp3 manifest, server-side job status, and local Zarr output state. `_reporting_status.py` in the project root reads the 12-run orchestration state and pulls W&B run summaries to show progress while a batch is running.
@@ -345,6 +352,9 @@ gedi-s1s2-agb/
 |   |-- 27_make_figures.py               # paper figures
 |   |-- 28_wall_to_wall_inference.py     # Phase 5: wall-to-wall maps (100 m)
 |   |-- 29_ensemble_uncertainty.py       # Phase 5: ensemble mean + uncertainty
+|   |-- 30_compare_cci.py                # Phase 5: CCI Biomass comparison
+|   |-- 31_make_phase5_figures.py        # Phase 5: figures
+|   |-- 32_clean_map_artifacts.py        # Phase 5: boundary artifact masking
 |   `-- tools/
 |       `-- audit_s1.py                  # S1 manifest / Hyp3 / disk cross-check
 |-- _reporting_status.py                 # Phase 3 batch monitoring
