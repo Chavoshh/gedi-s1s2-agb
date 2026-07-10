@@ -60,7 +60,7 @@ The `dev` region in central Galicia was chosen for the breadth of its biomass dy
 | 3     | ✅ done        | Model architecture + training pipeline; 12 reporting runs complete (4 variants × 3 seeds). Late fusion best at val RMSE 45.13 ± 0.23 Mg/ha. |
 | 4     | ✅ done        | Test-set evaluation: late fusion best at test RMSE 50.33 ± 0.37 Mg/ha. Stratified analysis by AGBD bin and land cover. |
 | 5     | ✅ done        | Wall-to-wall maps (100 m), ensemble mean + uncertainty, ESA CCI Biomass comparison. IFN deferred to JSTARS extension. |
-| 6     | ⏳ pending     | Manuscript preparation (IEEE GRSL, 5-page letter) |                                                        |
+| 6     | ✅ done     | Manuscript preparation (IEEE GRSL, 5-page letter) |                                                        |
 
 ---
 
