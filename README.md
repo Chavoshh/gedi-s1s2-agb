@@ -39,14 +39,14 @@ This project provides that controlled comparison over a forested AOI in Northwes
 
 ## Study area
 
-Two AOIs are defined in [`configs/aoi/`](configs/aoi/), swappable at the command line via Hydra.
+Two AOIs are defined in `configs/aoi/`, swappable at the command line via Hydra.
 
-| AOI    | Coverage                                                  | Size            | Purpose              |
-|--------|-----------------------------------------------------------|-----------------|----------------------|
-| `dev`  | MGRS tile 29TNG, central Galicia                          | ~110 × 110 km   | Pipeline prototyping |
-| `full` | Northwest Iberia (lon −9.5° to −5.5°, lat 41.5° to 43.5°) | ~400 × 220 km   | Final paper results  |
+| AOI | Coverage | Size | Purpose |
+|-----|----------|------|---------|
+| `dev` | Central Galicia, MGRS tile 29TNG (lon −8.5° to −7.3°, lat 42.6° to 43.6°) | ~110 × 110 km | All experiments and paper results |
+| `full` | Northwest Iberia (lon −9.5° to −5.5°, lat 41.5° to 43.5°) | ~400 × 220 km | Defined for a planned larger-scale extension; not used in this study |
 
-Northwest Iberia was chosen for the breadth of its biomass dynamic range (dense Atlantic forest, Mediterranean oak, dehesa savanna), favorable Sentinel-2 cloud climatology relative to central Europe, GEDI shot density at its latitude, and the availability of reference data (Spanish IFN, ESA CCI Biomass). Full rationale in the decisions log.
+The `dev` region in central Galicia was chosen for the breadth of its biomass dynamic range (dense Atlantic forest, planted conifer, and a grassland–cropland mosaic), favorable Sentinel-2 cloud climatology relative to central Europe, and GEDI shot density at its latitude. Independent reference layers (ESA WorldCover, ESA CCI Biomass) support evaluation. Full rationale in the decisions log.
 
 ---
 
