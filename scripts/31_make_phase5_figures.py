@@ -179,12 +179,12 @@ def fig_cci_agreement():
     bias = float(np.mean(y - x))
     corr = float(np.corrcoef(x, y)[0, 1])
     ax.text(0.04, 0.96,
-            f"n = {both.sum():,}\nRMSE = {rmse:.1f} Mg/ha\nbias = {bias:+.1f}\nr = {corr:.3f}",
+            f"n = {both.sum():,}\nRMSE = {rmse:.2f} Mg/ha\nbias = {bias:+.2f}\nr = {corr:.2f}",
             transform=ax.transAxes, va="top", fontsize=10,
             bbox=dict(facecolor="white", alpha=0.85, edgecolor="none"))
     ax.set_xlabel("ESA CCI Biomass v5 (Mg/ha)")
     ax.set_ylabel("This study, late-fusion ensemble (Mg/ha)")
-    ax.set_title("Agreement with ESA CCI Biomass over forest pixels", fontsize=13)
+    # ax.set_title("Agreement with ESA CCI Biomass over forest pixels", fontsize=13)
     ax.set_xlim(0, 300); ax.set_ylim(0, 300); ax.set_aspect("equal")
     ax.legend(loc="lower right", framealpha=0.9)
     plt.colorbar(hb, ax=ax, shrink=0.7, label="Pixel count (log)")

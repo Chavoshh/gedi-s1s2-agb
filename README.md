@@ -2,7 +2,7 @@
 
 > Sparse-supervised regression for above-ground biomass: GEDI L4A lidar footprints as labels, Sentinel-1 SAR and Sentinel-2 optical imagery as inputs, dense biomass maps as outputs.
 
-A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology. Targeting publication in IEEE GRSL / JSTARS as a methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion. The repository also functions as a portfolio piece for PhD applications aligned with related positions.
+A research project by [Chavosh Almassian](https://www.linkedin.com/in/chavosh-almassian-81a05216a/), M.Sc. Remote Sensing and Geoinformatics, Karlsruhe Institute of Technology, with [Keyvan Yahya](https://scholar.google.com/citations?user=sSlXxVMAAAAJ&hl=en), Chair of Computational Neuroscience and Applied Mathematics, Chemnitz University of Technology, and with [Farhad Baybordi](https://www.linkedin.com/in/farhad-baybordi-7706aa236/), software developer, Hahanair. A methodological contribution to GEDI-supervised biomass mapping with multi-sensor fusion.
 
 **Project status:** Phase 5 complete: wall-to-wall biomass maps at 100 m (late-fusion ensemble mean + per-pixel uncertainty), compared against ESA CCI Biomass v5. All experimental work done; manuscript (Phase 6) is the remaining step. Target venue: IEEE GRSL.
 **Decisions log:** [`docs/decisions.md`](docs/decisions.md), every non-obvious methodological choice is recorded with rationale and alternatives.

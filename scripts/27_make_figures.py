@@ -56,7 +56,7 @@ SCATTER_SEED = 7
 
 
 def fig_predicted_vs_observed(preds: pd.DataFrame) -> None:
-    """2x2 hexbin scatter, one panel per variant. Uses seed 42 only."""
+    """2x2 hexbin scatter, one panel per variant. Uses seed 7 only."""
     fig, axes = plt.subplots(2, 2, figsize=(11, 10), sharex=True, sharey=True)
     axes_flat = axes.flatten()
 
@@ -90,7 +90,7 @@ def fig_predicted_vs_observed(preds: pd.DataFrame) -> None:
         bias = float(np.mean(err))
         ax.text(
             0.04, 0.96,
-            f"RMSE = {rmse:.1f} Mg/ha\n$R^2$ = {r2:.3f}\nBias = {bias:+.1f}",
+            f"RMSE = {rmse:.2f} Mg/ha\n$R^2$ = {r2:.3f}\nBias = {bias:+.2f}",
             transform=ax.transAxes,
             verticalalignment="top",
             fontsize=10,
@@ -115,10 +115,10 @@ def fig_predicted_vs_observed(preds: pd.DataFrame) -> None:
     cbar = fig.colorbar(hb, ax=axes, orientation="vertical", shrink=0.7,
                         label="Patch count (log scale)")
 
-    fig.suptitle(
-        f"Predicted vs. observed AGBD on the test set (seed {SCATTER_SEED}, n = {len(df):,} patches per panel)",
-        fontsize=13, y=0.98,
-    )
+    #fig.suptitle(
+    #    f"Predicted vs. observed AGBD on the test set (seed {SCATTER_SEED}, n = {len(df):,} patches per panel)",
+    #    fontsize=13, y=0.98,
+    #)
 
     out_path = FIGURE_DIR / "predicted_vs_observed.png"
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -164,8 +164,8 @@ def fig_rmse_by_agbd_bin(by_bin: pd.DataFrame) -> None:
     ax.set_xticklabels(xtick_labels)
     ax.set_xlabel("True AGBD bin (Mg/ha)")
     ax.set_ylabel("Test RMSE (Mg/ha)")
-    ax.set_title("Test RMSE stratified by true AGBD bin (mean $\\pm$ std across 3 seeds)",
-                 fontsize=13)
+    #ax.set_title("Test RMSE stratified by true AGBD bin (mean $\\pm$ std across 3 seeds)",
+    #             fontsize=13)
     ax.legend(loc="upper left", framealpha=0.9)
     ax.grid(True, axis="y", alpha=0.3)
     ax.set_axisbelow(True)
